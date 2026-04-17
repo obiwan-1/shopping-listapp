@@ -224,14 +224,13 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    const STORAGE_KEY = 'shopping-list';
+    const SUPABASE_URL = 'https://nuylcyblzbnilbqqnext.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51eWxjeWJsemJuaWxicXFuZXh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0MDI5MTUsImV4cCI6MjA5MTk3ODkxNX0.XUuYEwaApFdy5OIqk8dZvVweX6waQ_a98J4ORVTauRU';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    let items = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-
-    function save() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    }
+    let items = [];
 
     function render() {
       const list = document.getElementById('list');
@@ -252,14 +251,14 @@
       const done = items.filter(i => i.done).length;
       statsText.textContent = `${total}개 중 ${done}개 완료`;
 
-      items.forEach((item, idx) => {
+      items.forEach((item) => {
         const li = document.createElement('li');
         li.className = 'list-item' + (item.done ? ' done' : '');
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = item.done;
-        checkbox.addEventListener('change', () => toggle(idx));
+        checkbox.addEventListener('change', () => toggle(item.id, !item.done));
 
         const span = document.createElement('span');
         span.className = 'item-text';
@@ -269,7 +268,7 @@
         delBtn.className = 'btn-delete';
         delBtn.textContent = '×';
         delBtn.title = '삭제';
-        delBtn.addEventListener('click', () => remove(idx));
+        delBtn.addEventListener('click', () => remove(item.id));
 
         li.appendChild(checkbox);
         li.appendChild(span);
@@ -278,41 +277,63 @@
       });
     }
 
-    function addItem() {
+    async function loadItems() {
+      const { data, error } = await sb
+        .from('shopping_items')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) { console.error(error); return; }
+      items = data;
+      render();
+    }
+
+    async function addItem() {
       const input = document.getElementById('itemInput');
       const text = input.value.trim();
       if (!text) return;
 
-      items.unshift({ text, done: false });
-      save();
-      render();
+      const { error } = await sb
+        .from('shopping_items')
+        .insert({ text, done: false });
+      if (error) { console.error(error); return; }
+
       input.value = '';
       input.focus();
+      await loadItems();
     }
 
-    function toggle(idx) {
-      items[idx].done = !items[idx].done;
-      save();
-      render();
+    async function toggle(id, done) {
+      const { error } = await sb
+        .from('shopping_items')
+        .update({ done })
+        .eq('id', id);
+      if (error) { console.error(error); return; }
+      await loadItems();
     }
 
-    function remove(idx) {
-      items.splice(idx, 1);
-      save();
-      render();
+    async function remove(id) {
+      const { error } = await sb
+        .from('shopping_items')
+        .delete()
+        .eq('id', id);
+      if (error) { console.error(error); return; }
+      await loadItems();
     }
 
-    function clearDone() {
-      items = items.filter(i => !i.done);
-      save();
-      render();
+    async function clearDone() {
+      const { error } = await sb
+        .from('shopping_items')
+        .delete()
+        .eq('done', true);
+      if (error) { console.error(error); return; }
+      await loadItems();
     }
 
     document.getElementById('itemInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') addItem();
     });
 
-    render();
+    loadItems();
   </script>
 </body>
 </html>
