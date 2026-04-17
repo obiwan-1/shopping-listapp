@@ -330,7 +330,7 @@
     }
 
     document.getElementById('itemInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') addItem();
+      if (e.key === 'Enter') { e.preventDefault(); addItem(); }
     });
 
     loadItems();
